@@ -813,7 +813,7 @@
         1,
         0.1
       ],
-      "detectionRange": 7,
+      "detectionRange": 14,
       "measurementPeriod": 1
     }
   }

@@ -15,7 +15,7 @@ simulator = dotbot.Simulator(config);
 mainLoop.setEventGenerator(simulator);
 
 % Create the store for estimates
-resultsAccumulator = ebe.slam.XPPlatformAccumulator();
+resultsAccumulator = ebe.slam.XPPlatformAccumulator(); % Core codes
 mainLoop.addResultsAccumulator(resultsAccumulator);
 
 % Set up the figure in which we draw everything
@@ -35,6 +35,7 @@ mainLoop.addViewer(simulatorViewer);
 % Run the main loop until it terminates
 mainLoop.run();
 
+% Return time and pose results
 THistory = resultsAccumulator.timeStore;
 XTrueHistory = resultsAccumulator.xTrueStore;
 

@@ -7,7 +7,7 @@ import g2o.core.*;
 import l4s.one_d_static.*;
 
 % Number of measurements
-numberOfMeasurements = 1;
+numberOfMeasurements = 20;
 
 % The standard deviation of the measurement
 sigmaR = 10;

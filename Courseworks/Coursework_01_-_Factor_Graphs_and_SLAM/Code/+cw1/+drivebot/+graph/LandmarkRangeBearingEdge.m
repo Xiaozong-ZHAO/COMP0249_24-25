@@ -1,104 +1,119 @@
 classdef LandmarkRangeBearingEdge < g2o.core.BaseBinaryEdge
-    % LandmarkRangeBearingEdge summary of LandmarkRangeBearingEdge
+    %LANDMARKRANGEBEARINGEDGE Factor for range-bearing observations of a landmark.
     %
-    % This class stores an edge which represents the factor for observing
-    % the range and bearing of a landmark from the vehicle. Note that the
-    % sensor is fixed to the platform.
+    % Observing the range r and bearing beta of a landmark (lx, ly) from the
+    % robot pose x_{k+1} = [x, y, theta]. The measurement model is:
+    %   r_pred   = sqrt((lx - x)^2 + (ly - y)^2)
+    %   beta_pred= wrap( atan2(ly-y, lx-x) - theta )
     %
-    % The measurement model is
+    % The error is: e = [r_pred - r_meas;  wrap(beta_pred - beta_meas)]
+    % with angle wrapping handled by g2o.stuff.normalize_theta or wrapToPi.
     %
-    %    z_(k+1)=h[x_(k+1)]+w_(k+1)
-    %
-    % The measurements are r_(k+1) and beta_(k+1) and are given as follows.
-    % The sensor is at (lx, ly).
-    %
-    %    dx = lx - x_(k+1); dy = ly - y_(k+1)
-    %
-    %    r(k+1) = sqrt(dx^2+dy^2)
-    %    beta(k+1) = atan2(dy, dx) - theta_(k+1)
-    %
-    % The error term
-    %    e(x,z) = z(k+1) - h[x(k+1)]
-    %
-    % However, remember that angle wrapping is required, so you will need
-    % to handle this appropriately in compute error.
-    %
-    % Note this requires estimates from two vertices - x_(k+1) and l_(k+1).
-    % Therefore, this inherits from a binary edge. We use the convention
-    % that vertex slot 1 contains x_(k+1) and slot 2 contains l_(k+1).
+    % Vertex slot 1: x_{k+1} (robot pose).
+    % Vertex slot 2: l_{j}   (landmark position).
     
     methods(Access = public)
-    
+        
         function obj = LandmarkRangeBearingEdge()
-            % LandmarkRangeBearingEdge for LandmarkRangeBearingEdge
-            %
-            % Syntax:
-            %   obj = LandmarkRangeBearingEdge(landmark);
-            %
-            % Description:
-            %   Creates an instance of the LandmarkRangeBearingEdge object.
-            %   Note we feed in to the constructor the landmark position.
-            %   This is to show there is another way to implement this
-            %   functionality from the range bearing edge from activity 3.
-            %
-            % Inputs:
-            %   landmark - (2x1 double vector)
-            %       The (lx,ly) position of the landmark
-            %
-            % Outputs:
-            %   obj - (handle)
-            %       An instance of a ObjectGPSMeasurementEdge
-
+            % Constructor. The measurement dimension is 2: [range; bearing].
             obj = obj@g2o.core.BaseBinaryEdge(2);
         end
         
         function initialEstimate(obj)
-            % INITIALESTIMATE Compute the initial estimate of the landmark.
-            %
-            % Syntax:
-            %   obj.initialEstimate();
-            %
-            % Description:
-            %   Compute the initial estimate of the landmark given the
-            %   platform pose and observation.
-
-            warning('LandmarkRangeBearingEdge.initialEstimate: implement')
-
-            lx = obj.edgeVertices{1}.x(1:2);
-            obj.edgeVertices{2}.setEstimate(lx);
+            %INITIAL ESTIMATE of the landmark position given the robot pose and measured [r, beta].
+            xPose = obj.edgeVertices{1}.estimate();    % [x, y, theta]
+            rPose = xPose(1:2);                        % robot (x,y)
+            thetaR= xPose(3);
+            
+            zMeas = obj.measurement;                   % [r, beta]
+            rMeas = zMeas(1);
+            bMeas = zMeas(2);
+            
+            % Landmark in world coords: l = robotXY + r*[cos(psi); sin(psi)],
+            % where psi=thetaR + bMeas. Normalize angle to handle wrap.
+            psi   = g2o.stuff.normalize_theta(thetaR + bMeas);
+            lX    = rPose(1) + rMeas*cos(psi);
+            lY    = rPose(2) + rMeas*sin(psi);
+            
+            obj.edgeVertices{2}.setEstimate([lX; lY]);
         end
         
         function computeError(obj)
-            % COMPUTEERROR Compute the error for the edge.
-            %
-            % Syntax:
-            %   obj.computeError();
-            %
-            % Description:
-            %   Compute the value of the error, which is the difference
-            %   between the predicted and actual range-bearing measurement.
-
-            warning('LandmarkRangeBearingEdge.computeError: implement')
-           
-            obj.errorZ = zeros(2, 1);
+            %COMPUTEERROR: e = [r_pred - r_meas; wrap(beta_pred - beta_meas)].
+            xPose = obj.edgeVertices{1}.estimate();  % [x, y, theta]
+            lPose = obj.edgeVertices{2}.estimate();  % [lx, ly]
+            
+            x     = xPose(1);
+            y     = xPose(2);
+            th    = xPose(3);
+            lx    = lPose(1);
+            ly    = lPose(2);
+            
+            zMeas = obj.measurement;                % [r, beta]
+            rMeas = zMeas(1);
+            bMeas = zMeas(2);
+            
+            dx    = (lx - x);
+            dy    = (ly - y);
+            
+            rPred = sqrt(dx^2 + dy^2);
+            bPred = wrapToPi(atan2(dy, dx) - th);    % or g2o.stuff.normalize_theta
+            
+            e_r   = rPred - rMeas;
+            e_b   = g2o.stuff.normalize_theta(bPred - bMeas);
+            
+            obj.errorZ = [e_r; e_b];
         end
         
         function linearizeOplus(obj)
-            % linearizeOplus Compute the Jacobian of the error in the edge.
-            %
-            % Syntax:
-            %   obj.linearizeOplus();
-            %
-            % Description:
-            %   Compute the Jacobian of the error function with respect to
-            %   the vertex.
-            %
-
-            warning('LandmarkRangeBearingEdge.linearizeOplus: implement')
-
-            obj.J{1} = eye(2, 3);
+            %LINEARIZEOPLUS: compute Jacobians w.r.t. robot pose and landmark coords.
+            xPose = obj.edgeVertices{1}.x; % [x, y, theta]
+            lPose = obj.edgeVertices{2}.x; % [lx, ly]
             
-            obj.J{2} = eye(2);
-        end        
+            x   = xPose(1);
+            y   = xPose(2);
+            th  = xPose(3);
+            lx  = lPose(1);
+            ly  = lPose(2);
+            
+            dx  = (lx - x);
+            dy  = (ly - y);
+            r   = sqrt(dx^2 + dy^2);
+            rr  = dx^2 + dy^2;  % r^2
+            
+            % Partial derivatives w.r.t. xPose = (x, y, th)
+            % e_r = (rPred - rMeas),   rPred= sqrt(dx^2 + dy^2) => ∂rPred/∂x= dx/r * ∂dx/∂x => -dx/r
+            d_er_dx  = -dx / r;
+            d_er_dy  = -dy / r;
+            d_er_dth =  0;
+            
+            % e_beta = (atan2(dy,dx) - th) - bMeas => partial wrt x => partial(atan2(dy,dx))/∂x + partial(-th)/∂x
+            % dx=lx-x => ∂dx/∂x=-1 => so partial(atan2(dy,dx))/∂x= dy/rr
+            d_eb_dx  =  dy / rr;
+            d_eb_dy  = -dx / rr;
+            d_eb_dth = -1;
+            
+            J1 = [
+                d_er_dx,  d_er_dy,  d_er_dth;
+                d_eb_dx,  d_eb_dy,  d_eb_dth
+            ];
+            
+            % Partial derivatives w.r.t. lPose = (lx, ly)
+            % e_r wrt lx => +dx / r,   e_r wrt ly => +dy / r
+            d_er_dlx = dx / r;
+            d_er_dly = dy / r;
+            
+            % e_beta wrt lx => we consider partial(atan2(dy,dx)) wrt dx => -dy/rr, but dx= (lx-x) => ∂dx/∂lx=1 => so total is -dy/rr
+            d_eb_dlx = -dy / rr;
+            d_eb_dly =  dx / rr;
+            
+            J2 = [
+                d_er_dlx,  d_er_dly;
+                d_eb_dlx,  d_eb_dly
+            ];
+            
+            obj.J{1} = J1;
+            obj.J{2} = J2;
+        end
     end
 end

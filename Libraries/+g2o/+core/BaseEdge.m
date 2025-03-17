@@ -442,8 +442,14 @@ classdef BaseEdge < g2o.core.HyperGraphElement
             % Outputs:
             %   chi2 - (double)
             %       The computed chi2 value.
-
+            
             chi2 = obj.errorZ' * (obj.Omega * obj.errorZ);
+            % if isnan(chi2)
+            %     warning('chi2: NaN detected!');
+            %     disp(['errorZ: ', mat2str(obj.errorZ)]);
+            %     disp(['Omega: ', mat2str(obj.Omega)]);
+            %     keyboard;  % MATLAB 进入调试模式
+            % end
             assert(isnan(chi2) == false, 'g2o:baseedge:chi2:chi2isnan', ...
                 'The chi2 value is NaN.');
         end
@@ -490,6 +496,7 @@ classdef BaseEdge < g2o.core.HyperGraphElement
             end
             b = obj.b;
             H = obj.H;
+  
         end
         
         function setMeasurement(obj, newZ)

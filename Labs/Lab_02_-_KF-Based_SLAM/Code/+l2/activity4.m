@@ -18,6 +18,8 @@ mainLoop.setEventGenerator(simulator);
 % Create the SLAM system and register it
 slamSystem = dotbot.SLAMSystem(config);
 mainLoop.addEstimator(slamSystem);
+
+% The line we added for lab 4.
 slamSystem.muckUpCovarianceMatrix(true);
 
 % Create the store for estimates

@@ -21,7 +21,7 @@ trueX = 10;
 % Odd even flag. This causes us to "switch" between the two sensors. The
 % first line means we always use the good sensor, the second case
 % alternates between the two
-%oddEven = ones(1, numberOfMeasurements);
+% oddEven = ones(1, numberOfMeasurements);
 oddEven = mod(0:numberOfMeasurements-1, 2) + 1;
 
 % Sample the noises for the different observations
@@ -67,7 +67,7 @@ for k = 1 : numberOfMeasurements
     graph.addEdge(e);
 
     % Graph construction complete for this iteration
-
+    
     % Initialise the optimization. If you ever change the structure of the
     % graph (e.g., add remove edges and vertices) you must call this before
     % calling optimize. If you don't change the graph structure, you can call

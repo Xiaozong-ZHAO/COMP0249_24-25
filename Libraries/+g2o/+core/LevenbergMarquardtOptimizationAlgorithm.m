@@ -74,8 +74,6 @@ classdef LevenbergMarquardtOptimizationAlgorithm < g2o.core.OptimizationAlgorith
                 rho = -Inf;
                 
                 while ((rho < 0) && (stop == false))
-
-                    % Compute the damped step
                     dX = (H + obj.mu * speye(n))\b;
 
                     % Termination condition
@@ -103,6 +101,7 @@ classdef LevenbergMarquardtOptimizationAlgorithm < g2o.core.OptimizationAlgorith
                         % each time with X. This accounts for the effects of both
                         % updated and rejected steps.
                         [H,b] = obj.optimizableGraph.computeHB(X);
+                        
 
                         stop = stop || (norm(b, 'inf') < obj.e1);
                         
